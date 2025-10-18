@@ -43,7 +43,7 @@ logger = logging.LoggerAdapter(logger, {"request_id": "N/A"})
 
 #loading Models
 print("\n[INFO] Loading models.")
-ROOT_DIR = "/runpod-volume/MuseTalk"
+ROOT_DIR = "/workspace/MuseTalk"
 FPS = 25
 paths = {
         "musetalk_json": os.path.join(ROOT_DIR, "models/musetalk_v15/musetalk.json"),
@@ -70,14 +70,14 @@ pe = pe.half().to(device)
 unet.model = unet.model.half().to(device)
 vae.vae = vae.vae.half().to(device)
 weight_dtype = unet.model.dtype
-whisper = WhisperModel.from_pretrained("/runpod-volume/MuseTalk/models/whisper") #Change line to network volume
+whisper = WhisperModel.from_pretrained("/workspace/MuseTalk/models/whisper") #Change line to network volume
 whisper = whisper.to(device, dtype=weight_dtype).eval()
 whisper.requires_grad_(False)
-audio_processor = AudioProcessor(feature_extractor_path="/runpod-volume/MuseTalk/models/whisper") #Change line to network volume
+audio_processor = AudioProcessor(feature_extractor_path="/workspace/MuseTalk/models/whisper") #Change line to network volume
 fp = FaceParsing(left_cheek_width=90, right_cheek_width=90)
 
 #loading data
-tmp_avatar_dir = f"/runpod-volume/MuseTalk/{AVATAR_ID}/" # Change path, no need to store in network volume
+tmp_avatar_dir = f"/workspace/MuseTalk/{AVATAR_ID}/"
 full_imgs_dir = os.path.join(tmp_avatar_dir, "full_imgs") #Change line to network volume
 mask_dir = os.path.join(tmp_avatar_dir, "mask") #Change line to network volume
 tmp_frames_dir = os.path.join("/workspace/", "tmp")
@@ -164,15 +164,10 @@ def handler(job):
         preds = unet.model(latents_tensor, torch.tensor([0], device=device), encoder_hidden_states=audio_features).sample
         preds = preds.to(device=device, dtype=weight_dtype)
         decoded_frames = vae.decode_latents(preds)
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = []
-            for res_frame in decoded_frames:
-                futures.append(executor.submit(save_blended_frame(idx, res_frame, coords, frames, masks, mask_coords, output_dir)))
-                idx += 1
-
-            for f in futures:
-                f.result()
-
+        for res_frame in decoded_frames:
+            save_blended_frame(idx, res_frame, coords, frames, masks, mask_coords, output_dir)
+            idx += 1
+        
     func_end = time.time()
     job_logger.info(f"Function 'generating and saving images' took {func_end - func_start:.3f} seconds.")
     
