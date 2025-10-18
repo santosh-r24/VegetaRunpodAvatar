@@ -34,7 +34,8 @@ RUN pip install diffusers==0.27.2 \
     moviepy==1.0.3 \
     tqdm==4.66.3 \
     requests==2.32.2 \
-    peft==0.10.0
+    peft==0.10.0 \
+    runpod==1.7.13
 
 # Install mmlab/openmim libs
 RUN pip install --no-cache-dir -U openmim && \
@@ -43,13 +44,23 @@ RUN pip install --no-cache-dir -U openmim && \
     mim install "mmdet==3.1.0" && \
     mim install "mmpose==1.1.0"
 
-# SSH Setup
-RUN mkdir -p /var/run/sshd && \
-    mkdir -p /root/.ssh && \
-    chmod 700 /root/.ssh
-COPY startup.sh /startup.sh
-RUN chmod +x /startup.sh
+# Create workspace directory
+RUN mkdir -p /workspace
 
-EXPOSE 22
+# Set working directory
+WORKDIR /workspace
 
-ENTRYPOINT ["/startup.sh"]
+# Clone your specific MuseTalk fork and branch (PUBLIC REPO - NO CREDENTIALS NEEDED)
+RUN git clone -b main https://github.com/santosh-r24/MuseTalk.git
+
+#Clone models into Musetalk 
+COPY models /workspace/MuseTalk/models
+
+#Clone vegeta into Musetalk
+COPY vegeta /workspace/MuseTalk/vegeta
+
+# Copy handler.py to workspace
+COPY handler.py /workspace/handler.py
+
+# Run the handler (no SSH server needed)
+CMD ["python", "handler.py"]
